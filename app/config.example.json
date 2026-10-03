@@ -1,0 +1,48 @@
+{
+  "_说明": "微信AI助手配置模板。复制本文件为 config.json 后填入你的信息。chat 填微信会话列表里显示的名字（备注名）。",
+  "llm": {
+    "api_key": "",
+    "base_url": "https://open.bigmodel.cn/api/paas/v4",
+    "model": "glm-4-flash-250414"
+  },
+  "monitor": {
+    "poll_interval_sec": 2,
+    "auto_reply": [
+      {
+        "chat": "示例客户A",
+        "mode": "auto",
+        "persona": "你是XX行业线上咨询客服，语气专业、热情、简洁，回复不超过50字，与业务无关的问题礼貌说明只负责相关咨询。",
+        "static_rules": [
+          {"match": "在吗|你好|您好", "reply": "您好，我在的～请问有什么可以帮您？"}
+        ]
+      }
+    ],
+    "group_monitor": [
+      {
+        "chat": "示例群",
+        "keywords": ["红包", "@所有人", "紧急"],
+        "keyword_replies": {}
+      }
+    ],
+    "avatar": {
+      "enabled": true,
+      "mode": "review",
+      "persona": "你是微信账号主人本人。用口语化、简短的方式回复，像真人聊天，不要用敬语，不要暴露自己是AI。",
+      "exclude": ["文件传输助手", "订阅号消息", "微信团队", "微信支付", "微信运动", "腾讯新闻", "漂流瓶", "游戏", "QQ邮件提醒"]
+    }
+  },
+  "tools": {
+    "web_search": {"enabled": false}
+  },
+  "safety": {
+    "work_start": "08:00",
+    "work_end": "23:00",
+    "per_chat_daily_limit": 30,
+    "min_interval_sec": 5,
+    "suspend_keywords": ["人工", "真人", "你是机器人吗"],
+    "sensitive_words": ["转账", "汇款", "银行卡", "密码", "验证码"]
+  },
+  "web": {
+    "port": 8765
+  }
+}

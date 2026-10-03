@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>微信AI助手控制台</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    background:#f6f9fc; color:#1a1f36; min-height:100vh;
+  }
+  body::before {
+    content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(600px 300px at 8% -10%, rgba(99,91,255,.14), transparent),
+      radial-gradient(700px 350px at 95% 0%, rgba(0,180,216,.12), transparent),
+      radial-gradient(500px 400px at 50% 110%, rgba(214,41,118,.07), transparent);
+  }
+  .wrap { max-width:1180px; margin:0 auto; padding:20px 16px 60px; }
+  header { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+  .logo { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg,#635bff,#00b4d8); color:#fff; font-size:22px; }
+  h1 { font-size:20px; font-weight:700; }
+  .sub { font-size:12px; color:#697386; }
+  .pill { padding:4px 12px; border-radius:99px; font-size:12px; font-weight:600; }
+  .pill.ok { background:#e3f5e9; color:#0e6245; }
+  .pill.bad { background:#fde8e8; color:#b3212f; }
+  .pill.mock { background:#fff0e0; color:#a05a00; }
+  .stats { display:flex; gap:10px; margin-left:auto; flex-wrap:wrap; }
+  .stat { background:#fff; border-radius:12px; padding:8px 14px; text-align:center; box-shadow:0 1px 3px rgba(50,50,93,.06); }
+  .stat b { display:block; font-size:18px; }
+  .stat span { font-size:11px; color:#697386; }
+  .grid { display:grid; grid-template-columns:1.5fr 1fr; gap:16px; align-items:start; }
+  @media (max-width:900px){ .grid { grid-template-columns:1fr; } }
+  .card { background:#fff; border-radius:16px; box-shadow:0 2px 6px rgba(50,50,93,.08); padding:16px; margin-bottom:16px; }
+  .card h2 { font-size:14px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  .badge { background:#eef0ff; color:#635bff; font-size:11px; padding:2px 8px; border-radius:99px; }
+  .badge.red { background:#fde8e8; color:#b3212f; }
+  /* 消息流：微信式固定高度窗口，面板内滚动（父级定高 + 子级 min-height:0 才能生效） */
+  .chatcard { position:relative; display:flex; flex-direction:column;
+    height:calc(100vh - 200px); min-height:480px; }
+  .chatwin { flex:1 1 0; min-height:0; overflow-y:auto; padding-right:6px; }
+  .chatwin::-webkit-scrollbar { width:6px; }
+  .chatwin::-webkit-scrollbar-track { background:transparent; }
+  .chatwin::-webkit-scrollbar-thumb { background:#d9dce6; border-radius:3px; }
+  .chatwin::-webkit-scrollbar-thumb:hover { background:#c1c9d2; }
+  #jumpNew { position:absolute; right:24px; bottom:18px; display:none;
+    background:#635bff; color:#fff; border-radius:99px; padding:6px 14px;
+    font-size:12px; box-shadow:0 4px 10px rgba(99,91,255,.35); z-index:5; }
+  /* 消息流 */
+  .msg { display:flex; margin-bottom:10px; }
+  .msg .bubble { max-width:78%; padding:8px 12px; border-radius:14px; font-size:13px; line-height:1.55; word-break:break-all; }
+  .msg .meta { font-size:10px; color:#8792a2; margin-bottom:3px; }
+  .msg.in { justify-content:flex-start; }
+  .msg.in .bubble { background:#f0f2f7; border-bottom-left-radius:4px; }
+  .msg.out { justify-content:flex-end; }
+  .msg.out .bubble { background:linear-gradient(135deg,#635bff,#7a73ff); color:#fff; border-bottom-right-radius:4px; }
+  .msg.sys { justify-content:center; }
+  .msg.sys .bubble { background:#fff7e6; color:#a05a00; font-size:11px; }
+  .tag { font-size:10px; opacity:.75; margin-left:6px; }
+  /* 草稿 */
+  .draft { border:1px solid #e6e8f0; border-radius:12px; padding:12px; margin-bottom:10px; background:#fbfbfe; }
+  .draft .head { font-size:12px; color:#484f66; margin-bottom:6px; }
+  .draft .reason { display:inline-block; background:#fff0e0; color:#a05a00; font-size:10px; padding:1px 7px; border-radius:99px; margin-left:6px; }
+  .draft textarea { width:100%; border:1px solid #d9dce6; border-radius:8px; padding:8px; font-size:13px; resize:vertical; min-height:52px; font-family:inherit; }
+  .draft .btns { display:flex; gap:8px; margin-top:8px; }
+  button { border:none; border-radius:8px; padding:7px 16px; font-size:12px; font-weight:600; cursor:pointer; }
+  .btn-send { background:linear-gradient(135deg,#635bff,#7a73ff); color:#fff; }
+  .btn-ghost { background:#eef0f6; color:#484f66; }
+  .btn-mini { padding:4px 10px; font-size:11px; }
+  .empty { color:#a3acb9; font-size:12px; text-align:center; padding:18px 0; }
+  /* 提醒 */
+  .alert-item { border-left:3px solid #e5484d; background:#fff5f5; border-radius:8px; padding:8px 12px; margin-bottom:8px; font-size:12px; }
+  .alert-item .kw { color:#b3212f; font-weight:700; }
+  .alert-item.read { border-left-color:#c1c9d2; background:#f7f8fa; opacity:.65; }
+  /* 监控对象表单 */
+  .sec-title { font-size:12px; font-weight:700; color:#484f66; margin:14px 0 8px; }
+  .sec-title:first-of-type { margin-top:2px; }
+  .mrow { display:flex; gap:6px; margin-bottom:6px; }
+  .mrow input { flex:1; border:1px solid #d9dce6; border-radius:8px; padding:7px 10px; font-size:12px; min-width:0; }
+  .mrow input:focus { outline:none; border-color:#635bff; }
+  .mrow .del { background:#fde8e8; color:#b3212f; font-weight:700; padding:7px 11px; flex:none; }
+  #avPersona, #avExclude { flex:1; border:1px solid #d9dce6; border-radius:8px; padding:7px 10px; font-size:12px; }
+  #avPersona:focus, #avExclude:focus { outline:none; border-color:#635bff; }
+  #avMode { border:1px solid #d9dce6; border-radius:8px; padding:6px 8px; font-size:12px; }
+  details.card summary { cursor:pointer; list-style:none; }
+  details.card summary::before { content:"▸ "; color:#8792a2; }
+  details.card[open] summary::before { content:"▾ "; }
+  details.card summary h2 { display:inline; }
+  /* 设置 */
+  textarea.cfg { width:100%; min-height:300px; font-family:Consolas,monospace; font-size:12px; border:1px solid #d9dce6; border-radius:10px; padding:10px; }
+  .row { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:12px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { background:#eef0f6; border-radius:99px; padding:4px 12px; font-size:12px; display:flex; gap:6px; align-items:center; }
+  .chip button { background:none; color:#b3212f; font-size:11px; padding:0 2px; }
+  .mockbox { display:flex; gap:6px; }
+  .mockbox input { flex:1; border:1px solid #d9dce6; border-radius:8px; padding:7px 10px; font-size:12px; }
+  .hint { font-size:11px; color:#8792a2; line-height:1.6; }
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#1a1f36; color:#fff;
+    padding:10px 22px; border-radius:99px; font-size:13px; opacity:0; transition:.3s; pointer-events:none; z-index:9; }
+  .toast.show { opacity:.95; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">微</div>
+    <div><h1>微信AI助手</h1><div class="sub" id="subline">本地控制台</div></div>
+    <div id="statusPill" class="pill bad">连接中…</div>
+    <div class="stats">
+      <div class="stat"><b id="stIn">0</b><span>今日收到</span></div>
+      <div class="stat"><b id="stOut">0</b><span>今日回复</span></div>
+      <div class="stat"><b id="stPending">0</b><span>待审核</span></div>
+      <div class="stat"><b id="stAlerts">0</b><span>群提醒</span></div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <div class="card chatcard"><h2>📨 消息流</h2>
+        <div class="chatwin" id="msgWin"><div id="msgList"><div class="empty">暂无消息</div></div></div>
+        <button id="jumpNew" onclick="jumpToNew()">有新消息 ↓</button>
+      </div>
+    </div>
+    <div>
+      <div class="card"><h2>📝 待审草稿 <span class="badge" id="draftBadge">0</span></h2><div id="draftList"><div class="empty">没有待审草稿</div></div></div>
+      <div class="card"><h2>🔔 群关键词提醒 <span class="badge red" id="alertBadge">0</span>
+        <button class="btn-ghost btn-mini" style="margin-left:auto" onclick="readAlerts()">全部已读</button></h2>
+        <div id="alertList"><div class="empty">暂无提醒</div></div></div>
+      <div class="card"><h2>⏸ 已转人工会话</h2><div id="suspendList" class="chips"><span class="hint">无（触发「人工/真人」等关键词时自动加入）</span></div></div>
+      <div class="card" id="mockCard" style="display:none"><h2>🧪 Mock 注入（测试用）</h2>
+        <div class="row"><input id="mockChat" placeholder="会话名，如 测试用户" value="测试用户"></div>
+        <div class="row"><input id="mockMsg" placeholder="模拟收到的消息内容"></div>
+        <button class="btn-send btn-mini" onclick="inject()">注入这条消息</button>
+        <div class="hint" style="margin-top:6px">会话名与上方「监控对象设置」里填的保持一致，才会走对应角色流程。</div>
+      </div>
+      <div class="card"><h2>🎯 监控对象设置 <span class="hint">填微信里的备注名，保存即生效</span></h2>
+        <div class="sec-title">白名单客户（消息自动回复）</div>
+        <div id="custList"></div>
+        <button class="btn-ghost btn-mini" onclick="newCust()">＋ 添加客户</button>
+        <div class="sec-title">群监控（关键词命中提醒）</div>
+        <div id="groupList"></div>
+        <button class="btn-ghost btn-mini" onclick="newGroup()">＋ 添加群</button>
+        <div class="sec-title">AI 分身（其余私聊）</div>
+        <div class="row"><label style="font-size:12px"><input type="checkbox" id="avEnabled"> 启用分身</label>
+          <select id="avMode"><option value="review">生成草稿待审核</option><option value="auto">自动直发</option></select></div>
+        <div class="row"><input id="avPersona" placeholder="分身人设（如：口语化、简短、像真人聊天）"></div>
+        <div class="row"><input id="avExclude" placeholder="排除会话，逗号分隔（默认已含文件传输助手等系统会话）"></div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn-send" onclick="saveMonitor()">保存监控设置（热生效）</button>
+          <button class="btn-ghost" onclick="renderForm(lastCfgObj,true)">放弃修改</button>
+        </div>
+        <div class="hint" style="margin-top:6px">LLM key、安全兜底策略（时段/频控/敏感词）在下方「高级设置」里改。</div>
+      </div>
+      <details class="card" id="cfgDetails"><summary><h2>⚙️ 高级设置（直接编辑 JSON）</h2></summary>
+        <div style="margin-top:12px">
+          <textarea class="cfg" id="cfgText" spellcheck="false"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn-send" onclick="saveCfg()">保存配置（热生效）</button>
+            <button class="btn-ghost" onclick="loadCfg()">还原当前</button>
+          </div>
+          <div class="hint" style="margin-top:6px">这里能改全部配置：LLM key、安全策略、人设、白名单等。保存即热加载，无需重启。</div>
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+let lastDraftId = 0, lastAlertId = 0, currentCfg = "", lastCfgObj = null, formDirty = false;
+
+function newCust(){ addCustRow('',''); formDirty = true; }
+function newGroup(){ addGroupRow('',''); formDirty = true; }
+function addCustRow(name, persona, orig){
+  const d = document.createElement('div'); d.className = 'mrow'; d.dataset.orig = orig || name || '';
+  d.innerHTML = '<input class="c-name" placeholder="客户备注名">'
+    + '<input class="c-persona" placeholder="人设（可空）">'
+    + '<button class="del" title="删除">×</button>';
+  d.querySelector('.c-name').value = name || '';
+  d.querySelector('.c-persona').value = persona || '';
+  d.querySelector('.del').onclick = () => { d.remove(); formDirty = true; };
+  d.addEventListener('input', () => formDirty = true);
+  document.getElementById('custList').appendChild(d);
+}
+function addGroupRow(name, kws, orig){
+  const d = document.createElement('div'); d.className = 'mrow'; d.dataset.orig = orig || name || '';
+  d.innerHTML = '<input class="g-name" placeholder="群名称">'
+    + '<input class="g-kw" placeholder="关键词，逗号分隔（如：红包，紧急）">'
+    + '<button class="del" title="删除">×</button>';
+  d.querySelector('.g-name').value = name || '';
+  d.querySelector('.g-kw').value = kws || '';
+  d.querySelector('.del').onclick = () => { d.remove(); formDirty = true; };
+  d.addEventListener('input', () => formDirty = true);
+  document.getElementById('groupList').appendChild(d);
+}
+function renderForm(cfg, force){
+  if (formDirty && !force) return;
+  if (!cfg || !cfg.monitor) return;
+  const cl = document.getElementById('custList'); cl.innerHTML = '';
+  (cfg.monitor.auto_reply || []).forEach(e => addCustRow(e.chat, e.persona || '', e.chat));
+  const gl = document.getElementById('groupList'); gl.innerHTML = '';
+  (cfg.monitor.group_monitor || []).forEach(e => addGroupRow(e.chat, (e.keywords || []).join('，'), e.chat));
+  const av = cfg.monitor.avatar || {};
+  document.getElementById('avEnabled').checked = !!av.enabled;
+  document.getElementById('avMode').value = av.mode || 'review';
+  document.getElementById('avPersona').value = av.persona || '';
+  document.getElementById('avExclude').value = (av.exclude || []).join('，');
+  formDirty = false;
+}
+async function saveMonitor(){
+  const cfg = lastCfgObj;
+  if (!cfg || !cfg.monitor) { toast('配置还没加载好'); return; }
+  const oldA = {}; (cfg.monitor.auto_reply || []).forEach(e => oldA[e.chat] = e);
+  const ar = [...document.querySelectorAll('#custList .mrow')].map(r => {
+    const chat = r.querySelector('.c-name').value.trim();
+    if (!chat) return null;
+    const base = oldA[r.dataset.orig] || {};
+    const persona = r.querySelector('.c-persona').value.trim();
+    return Object.assign({}, base, { chat, mode: base.mode || 'auto',
+      persona: persona || base.persona || '你是一个友好的客服助手，简洁回复。',
+      static_rules: base.static_rules || [] });
+  }).filter(Boolean);
+  const oldG = {}; (cfg.monitor.group_monitor || []).forEach(e => oldG[e.chat] = e);
+  const gm = [...document.querySelectorAll('#groupList .mrow')].map(r => {
+    const chat = r.querySelector('.g-name').value.trim();
+    if (!chat) return null;
+    const base = oldG[r.dataset.orig] || {};
+    const kws = r.querySelector('.g-kw').value.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+    return Object.assign({}, base, { chat,
+      keywords: kws.length ? kws : (base.keywords || []),
+      keyword_replies: base.keyword_replies || {} });
+  }).filter(Boolean);
+  const av = cfg.monitor.avatar || {};
+  cfg.monitor.auto_reply = ar;
+  cfg.monitor.group_monitor = gm;
+  cfg.monitor.avatar = Object.assign({}, av, {
+    enabled: document.getElementById('avEnabled').checked,
+    mode: document.getElementById('avMode').value,
+    persona: document.getElementById('avPersona').value.trim() || av.persona || '你是账号主人本人，口语化简短回复。',
+    exclude: document.getElementById('avExclude').value.split(/[,，]/).map(s => s.trim()).filter(Boolean) });
+  const r = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) });
+  const j = await r.json();
+  if (j.ok) { formDirty = false; toast('监控设置已保存并热生效 ✓'); refresh(); }
+  else toast('保存失败：' + j.error);
+}
+
+function toast(t){ const el=document.getElementById('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2200); }
+function esc(s){ return (s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function beep(){ try{ const a=new (window.AudioContext||window.webkitAudioContext)(); const o=a.createOscillator(),g=a.createGain();
+  o.connect(g); g.connect(a.destination); o.frequency.value=880; g.gain.value=.06; o.start(); o.stop(a.currentTime+.18);}catch(e){} }
+
+async function refresh(){
+  try{
+    const r = await fetch('/api/state'); const s = await r.json();
+    // 状态
+    const p = document.getElementById('statusPill'); const st = s.status||{};
+    if(st.mock){ p.className='pill mock'; p.textContent='Mock 模式'; document.getElementById('mockCard').style.display='block'; }
+    else if(st.connected){ p.className='pill ok'; p.textContent=st.chat_page?'微信已连接':'微信已连接(不在聊天页)'; }
+    else { p.className='pill bad'; p.textContent='未连接'; }
+    document.getElementById('subline').textContent = (st.hint||'') + (s.last_error?(' | 轮询异常:'+s.last_error):'') + (s.llm_enabled?'':' | LLM未配置key(仅规则/草稿)');
+    // 统计
+    const t=s.stats||{}; document.getElementById('stIn').textContent=t.in||0; document.getElementById('stOut').textContent=t.out||0;
+    document.getElementById('stPending').textContent=t.pending||0; document.getElementById('stAlerts').textContent=t.alerts||0;
+    // 消息流（微信式：贴底自动跟随；向上翻历史时不打扰，用「有新消息」提示）
+    const win = document.getElementById('msgWin');
+    const ml = document.getElementById('msgList');
+    const nearBottom = win.scrollHeight - win.scrollTop - win.clientHeight < 120;
+    if((s.messages||[]).length){ ml.innerHTML=s.messages.map(m=>{
+      const dir=m.direction==='out'?'out':(m.direction==='in'?'in':'sys');
+      const tag=m.action?`<span class="tag">${esc(m.action)}</span>`:'';
+      if(dir==='sys') return `<div class="msg sys"><div class="bubble">${esc(m.content)}</div></div>`;
+      return `<div class="msg ${dir}"><div class="bubble"><div class="meta">${esc(m.chat)} · ${esc(m.ts||'')}</div>${esc(m.content)}${dir==='out'?tag:''}</div></div>`;
+    }).join('');
+      win.scrollTop = nearBottom ? win.scrollHeight : win.scrollTop;
+      document.getElementById('jumpNew').style.display = nearBottom ? 'none' : 'block';
+    }
+    // 草稿
+    const dl=document.getElementById('draftList'); const drafts=s.drafts||[];
+    document.getElementById('draftBadge').textContent=drafts.length;
+    if(drafts.length){ dl.innerHTML=drafts.map(d=>`
+      <div class="draft"><div class="head">💬 <b>${esc(d.chat)}</b> · ${esc(d.ts)}<span class="reason">${esc(d.reason)}</span></div>
+      <textarea id="draft-${d.id}">${esc(d.content)}</textarea>
+      <div class="btns"><button class="btn-send" onclick="draftSend(${d.id},'${esc(d.chat).replace(/'/g,"\\'")}')">修改后发送</button>
+      <button class="btn-ghost" onclick="draftReject(${d.id})">拒绝</button></div></div>`).join('');
+      if(drafts[0].id!==lastDraftId && lastDraftId!==0) beep();
+      lastDraftId=drafts[0].id;
+    } else { dl.innerHTML='<div class="empty">没有待审草稿</div>'; }
+    // 提醒
+    const al=document.getElementById('alertList'); const alerts=s.alerts||[];
+    document.getElementById('alertBadge').textContent=(s.stats||{}).alerts||0;
+    if(alerts.length){ al.innerHTML=alerts.map(a=>`
+      <div class="alert-item ${a.read?'read':''}"><span class="kw">${esc(a.keyword)}</span> · ${esc(a.chat)} · ${esc(a.ts)}<br>${esc(a.content)}</div>`).join('');
+      if(alerts[0].id!==lastAlertId && lastAlertId!==0) beep();
+      lastAlertId=alerts[0].id;
+    } else { al.innerHTML='<div class="empty">暂无提醒</div>'; }
+    // 转人工
+    const sl=document.getElementById('suspendList'); const sup=s.suspended||[];
+    sl.innerHTML = sup.length? sup.map(c=>`<span class="chip">${esc(c)}<button onclick="resumeChat('${esc(c).replace(/'/g,"\\'")}')">恢复</button></span>`).join('')
+      : '<span class="hint">无（触发「人工/真人」等关键词时自动加入）</span>';
+    // 配置：表单 + 高级JSON（收起）
+    lastCfgObj = s.config;
+    if(!document.activeElement || document.activeElement.id!=='cfgText'){
+      currentCfg=JSON.stringify(s.config,null,2);
+      const ct=document.getElementById('cfgText');
+      if(ct.value!==currentCfg) ct.value=currentCfg;
+    }
+    if(!s.config || !s.config.monitor){ document.getElementById('cfgDetails').open=true; }
+    renderForm(s.config);
+  }catch(e){ const p=document.getElementById('statusPill'); p.className='pill bad'; p.textContent='控制台掉线'; }
+}
+
+async function draftSend(id,chat){ const content=document.getElementById('draft-'+id).value;
+  const r=await fetch('/api/draft/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,chat,content})});
+  const j=await r.json(); toast(j.ok?'已发送 ✓':('失败:'+j.error)); refresh(); }
+async function draftReject(id){ await fetch('/api/draft/reject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); toast('已拒绝'); refresh(); }
+async function readAlerts(){ await fetch('/api/alerts/read',{method:'POST'}); refresh(); }
+async function resumeChat(c){ await fetch('/api/chat/resume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat:c})}); toast('已恢复 '+c); refresh(); }
+async function inject(){ const chat=document.getElementById('mockChat').value.trim(), content=document.getElementById('mockMsg').value.trim();
+  if(!content) return toast('先填消息内容');
+  await fetch('/api/test/inject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat,content})});
+  document.getElementById('mockMsg').value=''; toast('已注入'); refresh(); }
+async function loadCfg(){ const r=await fetch('/api/state'); const s=await r.json(); document.getElementById('cfgText').value=JSON.stringify(s.config,null,2); }
+async function saveCfg(){ try{ const cfg=JSON.parse(document.getElementById('cfgText').value);
+    const r=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
+    const j=await r.json(); toast(j.ok?'配置已保存并热生效 ✓':('保存失败:'+j.error)); }catch(e){ toast('JSON 格式错误：'+e.message); } }
+
+function jumpToNew(){ const w=document.getElementById('msgWin'); w.scrollTop=w.scrollHeight;
+  document.getElementById('jumpNew').style.display='none'; }
+document.getElementById('msgWin').addEventListener('scroll', function(){
+  const w=this;
+  if(w.scrollHeight - w.scrollTop - w.clientHeight < 40)
+    document.getElementById('jumpNew').style.display='none';
+});
+
+refresh(); setInterval(refresh,2000);
+</script>
+</body>
+</html>
