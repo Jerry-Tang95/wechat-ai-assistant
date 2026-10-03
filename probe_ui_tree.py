@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """只读探测：微信 4.x 账号 UI 树是否可见（不做任何点击/发送操作）"""
 import sys
-sys.path.insert(0, r"C:\Users\TJL\WeChatAI\pywechat_repo\src")
 from pyweixin.WeChatTools import Tools
 from pywinauto import Desktop
 
